@@ -13,7 +13,7 @@ from requests_oauthlib import OAuth1
 
 Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=lambda url: url + ".json")
 
-def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2):
+def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2, dry_run=False):
     auth = OAuth1(consumer_key, consumer_secret, access_token, access_token_secret)
     twitter = Twitter(auth=auth)
 
@@ -65,17 +65,18 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         return list_['id']
 
     def unfollow_and_add_to_list(list_id, user_id, screen_name):
-        retry_until_success(
-            twitter.POST.lists.members.create,
-            list_id=stopped_tweeting_list_id,
-            user_id=user_id,
-            screen_name=screen_name
-        )
+        if not dry_run:
+            retry_until_success(
+                twitter.POST.lists.members.create,
+                list_id=stopped_tweeting_list_id,
+                user_id=user_id,
+                screen_name=screen_name
+            )
 
-        retry_until_success(
-            twitter.POST.friendships.destroy,
-            user_id=user_id
-        )
+            retry_until_success(
+                twitter.POST.friendships.destroy,
+                user_id=user_id
+            )
 
     stopped_tweeting_list_id = get_list_id(
         name="Unfollowed: Quit Twitter",
