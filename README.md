@@ -36,4 +36,4 @@ TODOs
 -----
 
 * Tests
-* Dry run
+* ~~Dry run~~
