@@ -1,0 +1,7 @@
+*.json
+followers.txt
+auth.txt
+*.egg-info/
+build/
+dist/
+
