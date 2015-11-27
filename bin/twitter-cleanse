@@ -12,7 +12,7 @@ if __name__ == "__main__":
     parser.add_argument("--access-token", "--access_token", help="Your Twitter access token.")
     parser.add_argument("--access-token-secret", "--access_token_secret", help="Your Twitter access token secret.")
     parser.add_argument("--use-cache", type=bool, default=True, help="Use a file cache to cache Twitter response payloads (defaults to true).")
-    parser.add_argument("--years-dormant-threshold", type=int, default=2, help="The number of years a person hasn't tweeted for to be unfollowed (defaults to 2).")
+    parser.add_argument("--years-dormant-threshold", type=float, default=2, help="The number of years a person hasn't tweeted for to be unfollowed (defaults to 2).")
 
     args = parser.parse_args()
     if all([args.access_token, args.access_token_secret, args.consumer_key, args.consumer_secret]):
