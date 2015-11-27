@@ -4,4 +4,4 @@ auth.txt
 *.egg-info/
 build/
 dist/
-
+*.bak
