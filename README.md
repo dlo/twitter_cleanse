@@ -13,7 +13,7 @@ It will also save these users to two distinct Twitter lists in case you'd like t
 Installation
 ------------
 
-    pip install restmapper requests_oauthlib pytz twitter-cleanse
+    pip install restmapper requests-oauthlib pytz twitter-cleanse
 
 Running
 -------
