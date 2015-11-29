@@ -34,8 +34,10 @@ Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=url_transfo
 
 
 def request_hash(fun, **params):
-    key = "{}{}".format(fun.__name__, urllib.urlencode(params))
-    return hashlib.md5(key).hexdigest()
+    path = "/".join(fun.components)
+    key = "{}{}".format(path, urllib.urlencode(params))
+    checksum = hashlib.md5(key).hexdigest()
+    return checksum
 
 
 def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2, dry_run=False):
