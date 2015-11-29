@@ -65,8 +65,6 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
 
                     break
                 else:
-                    print response.url
-                    print response.json()
                     raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
 
         return result
