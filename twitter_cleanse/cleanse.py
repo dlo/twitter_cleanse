@@ -41,7 +41,12 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
                 with open(filename, 'r') as f:
                     result = json.load(f)
             else:
-                result = twitter.friends.list(count=200, include_user_entities=False, cursor=cursor)
+                result = retry_until_success(
+                    twitter.friends.list,
+                    count=200,
+                    include_user_entities=False,
+                    cursor=cursor
+                )
 
                 if use_cache:
                     with open(filename, 'w') as f:
@@ -62,7 +67,12 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
                 break
         else:
             # If the loop falls through without finding a match, create a new list.
-            list_ = twitter.POST.lists.create(name=name, mode="private", description=description)
+            list_ = retry_until_success(
+                twitter.POST.lists.create,
+                name=name,
+                mode="private",
+                description=description
+            )
 
         return list_['id']
 
