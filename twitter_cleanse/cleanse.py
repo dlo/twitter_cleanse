@@ -13,6 +13,22 @@ from requests_oauthlib import OAuth1
 
 Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=lambda url: url + ".json")
 
+def retry_until_success(fun, **kwargs):
+    while True:
+        response = fun(
+            parse_response=False,
+            **kwargs
+        )
+
+        if response.status_code == 200:
+            break
+        else:
+            print response.json()
+            raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
+
+    return response.json()
+
+
 def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2, dry_run=False):
     auth = OAuth1(consumer_key, consumer_secret, access_token, access_token_secret)
     twitter = Twitter(auth=auth)
@@ -36,20 +52,6 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
 
             cursor = result['next_cursor']
 
-    def retry_until_success(fun, **kwargs):
-        while True:
-            response = fun(
-                parse_response=False,
-                **kwargs
-            )
-
-            if response.status_code == 200:
-                break
-            else:
-                print response.json()
-                raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
-
-        return response.json()
 
     def get_list_id(name, description):
         lists = retry_until_success(twitter.lists.ownerships)['lists']
