@@ -5,52 +5,79 @@ import os
 import json
 import pprint
 import datetime
+import hashlib
+import urllib
+import errno
 
 import pytz
 from dateutil import parser as date_parser
 from restmapper.restmapper import RestMapper
 from requests_oauthlib import OAuth1
 
-Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=lambda url: url + ".json")
+def url_transformer(url):
+    if url.endswith("/__name__"):
+        url = url.replace("/__name__", "")
 
-def retry_until_success(fun, **kwargs):
-    while True:
-        response = fun(
-            parse_response=False,
-            **kwargs
-        )
+    return url + ".json"
 
-        if response.status_code == 200:
-            break
-        else:
-            print response.json()
-            raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
 
-    return response.json()
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc: # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else: raise
+
+
+Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=url_transformer)
+
+
+def request_hash(fun, **params):
+    key = "{}{}".format(fun.__name__, urllib.urlencode(params))
+    return hashlib.md5(key).hexdigest()
 
 
 def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2, dry_run=False):
     auth = OAuth1(consumer_key, consumer_secret, access_token, access_token_secret)
     twitter = Twitter(auth=auth)
 
-    def users():
-        cursor = -1
-        while cursor != 0:
-            filename = "users_{}.json".format(cursor)
-            if use_cache and os.path.exists(filename):
-                with open(filename, 'r') as f:
-                    result = json.load(f)
-            else:
-                result = retry_until_success(
-                    twitter.friends.list,
-                    count=200,
-                    include_user_entities=False,
-                    cursor=cursor
+    def retry_until_success(fun, **kwargs):
+        mkdir_p("twitter_cleanse_cache")
+        filename = "twitter_cleanse_cache/{}.json".format(request_hash(fun, **kwargs))
+        if use_cache and os.path.exists(filename):
+            with open(filename, 'r') as f:
+                result = json.load(f)
+        else:
+            while True:
+                response = fun(
+                    parse_response=False,
+                    **kwargs
                 )
 
-                if use_cache:
-                    with open(filename, 'w') as f:
-                        json.dump(result, f)
+                if response.status_code == 200:
+                    result = response.json()
+                    if use_cache:
+                        with open(filename, 'w') as f:
+                            json.dump(result, f)
+
+                    break
+                else:
+                    print response.url
+                    print response.json()
+                    raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
+
+        return result
+
+    def users(fun):
+        cursor = -1
+        while cursor != 0:
+            result = retry_until_success(
+                fun,
+                count=200,
+                include_user_entities="false",
+                cursor=cursor
+            )
 
             for user in result['users']:
                 yield user
@@ -100,11 +127,23 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         description="Users who have no tweets."
     )
 
+    muted_list_id = get_list_id(
+        name="Unfollowed: Muted",
+        description="Muted users who are no longer followers."
+    )
+
     now = datetime.datetime.now(pytz.utc)
-    for user in users():
+    followers = set(user['id'] for user in users(twitter.followers.list))
+
+    for user in users(twitter.friends.list):
         user_id = user['id']
         screen_name = user['screen_name']
-        if 'status' in user:
+        muted = user['muting']
+        if muted and user_id not in followers:
+            unfollow_and_add_to_list(muted_list_id, user_id, screen_name)
+
+            print "Unfollowing", screen_name, "since they're muted and are no longer followers."
+        elif 'status' in user:
             # Unfollow users who haven't tweeted in `years_dormant_threshold` years.
             dt = date_parser.parse(user['status']['created_at'])
             delta = now - dt
