@@ -105,6 +105,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         user_id = user['id']
         screen_name = user['screen_name']
         if 'status' in user:
+            # Unfollow users who haven't tweeted in `years_dormant_threshold` years.
             dt = date_parser.parse(user['status']['created_at'])
             delta = now - dt
             years = round(delta.days / 365., 2)
@@ -113,6 +114,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
 
                 print "Unfollowing", screen_name, "since they haven't tweeted in {} years".format(years)
         else:
+            # Unfollow users who have never tweeted
             unfollow_and_add_to_list(no_tweets_list_id, user_id, screen_name)
 
             print "Unfollowing", screen_name, "since they have no tweets"
