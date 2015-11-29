@@ -142,7 +142,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         if muted and user_id not in followers:
             unfollow_and_add_to_list(muted_list_id, user_id, screen_name)
 
-            print "Unfollowing", screen_name, "since they're muted and are no longer followers."
+            print "Unfollowing", screen_name, "since they're muted and are not a follower."
         elif 'status' in user:
             # Unfollow users who haven't tweeted in `years_dormant_threshold` years.
             dt = date_parser.parse(user['status']['created_at'])
