@@ -7,7 +7,7 @@ In short, this utility unfollows everyone who you follow who:
 
 1. Has no tweets, or
 2. Hasn't tweeted in the last X years (defaults to 2).
-3. You've muted but no longer follows you back.
+3. Has been muted but no longer follows you back.
 
 It will also save these users to distinct Twitter lists in case you'd like to re-follow them in the future.
 
