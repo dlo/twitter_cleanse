@@ -107,7 +107,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         if not dry_run:
             retry_until_success(
                 twitter.POST.lists.members.create,
-                list_id=stopped_tweeting_list_id,
+                list_id=list_id,
                 user_id=user_id,
                 screen_name=screen_name
             )
