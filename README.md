@@ -23,7 +23,7 @@ Installation
 Running
 -------
 
-Before you start anything, you'll need to create a [Twitter application](https://apps.twitter.com). Once you have all the credentials you need (consumer key, consumer secret, access token, and access token secret), just view the built-in command help for usage.
+Before you start anything, you'll need to create a [Twitter application](https://apps.twitter.com/app/new). Once you have all the credentials you need (consumer key, consumer secret, access token, and access token secret), just view the built-in command help for usage.
 
     twitter-cleanse -h
 
