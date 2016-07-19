@@ -1,6 +1,10 @@
 Twitter Cleanse
 ===============
 
+![Version](https://img.shields.io/pypi/v/twitter-cleanse.svg?style=flat)
+![License](https://img.shields.io/pypi/l/twitter-cleanse.svg?style=flat)
+![](https://img.shields.io/pypi/pyversions/twitter-cleanse.svg?style=flat)
+
 How many people do you follow on Twitter? If it's a fairly large number (as in my case), there's a good chance that a few of them don't actually tweet anymore. Because I'm not a huge fan of clutter—digital or otherwise—I decided to write a utility to clean up the list of people I follow and only keep following those users who've kept up their Twitter habit.
 
 In short, this utility unfollows everyone who you follow who:
@@ -14,7 +18,7 @@ It will also save these users to distinct Twitter lists in case you'd like to re
 Installation
 ------------
 
-    pip install python-dateutil restmapper requests-oauthlib pytz twitter-cleanse
+    pip install twitter-cleanse
 
 Running
 -------
