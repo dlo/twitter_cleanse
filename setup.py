@@ -24,5 +24,11 @@ setup(
     scripts=[
         'bin/twitter-cleanse',
     ],
+    install_requires=[
+        'python-dateutil',
+        'restmapper',
+        'requests-oauthlib',
+        'pytz'
+    ]
 )
 
