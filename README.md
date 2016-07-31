@@ -42,3 +42,9 @@ TODOs
 
 * Tests
 * ~~Dry run~~
+
+License
+-------
+
+Apache License, Version 2.0. See [LICENSE](LICENSE) file for details.
+
