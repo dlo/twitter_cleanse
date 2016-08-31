@@ -44,8 +44,7 @@ def mkdir_p(path):
         else: raise
 
 
-Twitter = RestMapper("https://api.twitter.com/1.1/", url_transformer=url_transformer)
-
+Twitter = RestMapper("https://api.twitter.com/1.1/{path}.json")
 
 def request_hash(fun, **params):
     path = "/".join(fun.components)
