@@ -78,7 +78,10 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
 
                     break
                 else:
-                    raw_input("{} status code returned. Wait 15 (?) minutes and then press enter.".format(response.status_code))
+                    dt = datetime.datetime.now() + datetime.timedelta(minutes=15)
+                    formatted_time = dt.strftime("%l:%m:%S %p").strip()
+                    print("{} status code returned.".format(response.status_code))
+                    raw_input("Press enter to try again. To be safe, wait 15 minutes (until {}) before continuing. ".format(formatted_time))
 
         return result
 

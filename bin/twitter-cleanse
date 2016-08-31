@@ -21,10 +21,10 @@ from twitter_cleanse.cleanse import cleanse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(prog="twitter-cleanse")
-    parser.add_argument("--consumer-key", "--consumer_key", help="Your Twitter application's consumer key.")
-    parser.add_argument("--consumer-secret", "--consumer_secret", help="Your Twitter application's consumer secret.")
-    parser.add_argument("--access-token", "--access_token", help="Your Twitter access token.")
-    parser.add_argument("--access-token-secret", "--access_token_secret", help="Your Twitter access token secret.")
+    parser.add_argument("--consumer-key", "--consumer_key", "--key", help="Your Twitter application's consumer key.")
+    parser.add_argument("--consumer-secret", "--consumer_secret", "--secret", help="Your Twitter application's consumer secret.")
+    parser.add_argument("--access-token", "--access_token", "--token", help="Your Twitter access token.")
+    parser.add_argument("--access-token-secret", "--access_token_secret", "--token-secret", help="Your Twitter access token secret.")
     parser.add_argument("--use-cache", type=bool, default=True, help="Use a file cache to cache Twitter response payloads (defaults to true).")
     parser.add_argument("--years-dormant-threshold", "--years", type=float, default=2, help="The number of years a person hasn't tweeted for to be unfollowed (defaults to 2).")
     parser.add_argument("--dry-run", type=bool, default=False, help="Print out log messages as usual, but don't actually unfollow anyone.")
