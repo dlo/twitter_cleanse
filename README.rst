@@ -24,7 +24,7 @@ Installation
 
 ::
 
-    pip install twitter-cleanse
+   pip install twitter-cleanse
 
 Running
 -------
@@ -36,7 +36,7 @@ access token secret), just view the built-in command help for usage.
 
 ::
 
-    twitter-cleanse -h
+   twitter-cleanse -h
 
 What it does
 ------------
