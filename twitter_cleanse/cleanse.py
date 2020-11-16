@@ -15,6 +15,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import print_function
+
 import os
 import json
 import pprint
@@ -158,7 +160,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         if muted and user_id not in followers:
             unfollow_and_add_to_list(muted_list_id, user_id, screen_name)
 
-            print "Unfollowing", screen_name, "since they're muted and are not a follower."
+            print("Unfollowing", screen_name, "since they're muted and are not a follower.")
         elif 'status' in user:
             # Unfollow users who haven't tweeted in `years_dormant_threshold` years.
             dt = date_parser.parse(user['status']['created_at'])
@@ -167,10 +169,10 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
             if years >= years_dormant_threshold:
                 unfollow_and_add_to_list(stopped_tweeting_list_id, user_id, screen_name)
 
-                print "Unfollowing", screen_name, "since they haven't tweeted in {} years".format(years)
+                print("Unfollowing", screen_name, "since they haven't tweeted in {} years".format(years))
         else:
             # Unfollow users who have never tweeted
             unfollow_and_add_to_list(no_tweets_list_id, user_id, screen_name)
 
-            print "Unfollowing", screen_name, "since they have no tweets"
+            print("Unfollowing", screen_name, "since they have no tweets")
 
