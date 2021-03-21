@@ -15,14 +15,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import print_function
+
 
 import os
 import json
 import pprint
 import datetime
 import hashlib
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import errno
 
 import pytz
@@ -50,7 +50,7 @@ Twitter = RestMapper("https://api.twitter.com/1.1/{path}.json")
 
 def request_hash(fun, **params):
     path = "/".join(fun.components)
-    key = "{}{}".format(path, urllib.urlencode(params))
+    key = "{}{}".format(path, urllib.parse.urlencode(params))
     checksum = hashlib.md5(key).hexdigest()
     return checksum
 
@@ -83,7 +83,7 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
                     dt = datetime.datetime.now() + datetime.timedelta(minutes=15)
                     formatted_time = dt.strftime("%l:%m:%S %p").strip()
                     print("{} status code returned.".format(response.status_code))
-                    raw_input("Press enter to try again. To be safe, wait 15 minutes (until {}) before continuing. ".format(formatted_time))
+                    input("Press enter to try again. To be safe, wait 15 minutes (until {}) before continuing. ".format(formatted_time))
 
         return result
 
