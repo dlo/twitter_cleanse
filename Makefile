@@ -16,6 +16,8 @@
 
 METADATA_FILE := $(shell find . -name "metadata.py" -depth 2)
 
+.PHONY: clean test update_readme update_version publish
+
 all: clean test publish
 
 clean:
@@ -24,6 +26,9 @@ clean:
 test:
 	python setup.py test
 	python3 setup.py test
+
+install:
+	python setup.py install
 
 update_readme:
 	pandoc --from=markdown --to=rst --output=README.rst README.md
