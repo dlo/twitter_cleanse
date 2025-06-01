@@ -51,7 +51,7 @@ Twitter = RestMapper("https://api.twitter.com/1.1/{path}.json")
 def request_hash(fun, **params):
     path = "/".join(fun.components)
     key = "{}{}".format(path, urllib.parse.urlencode(params))
-    checksum = hashlib.md5(key).hexdigest()
+    checksum = hashlib.md5(key.encode('utf-8')).hexdigest()
     return checksum
 
 
