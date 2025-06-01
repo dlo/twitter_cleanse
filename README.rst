@@ -61,8 +61,8 @@ likely make it in.
 TODOs
 -----
 
--  Tests
--  [STRIKEOUT:Dry run]
+- Tests
+- [STRIKEOUT:Dry run]
 
 License
 -------
@@ -73,4 +73,3 @@ Apache License, Version 2.0. See `LICENSE <LICENSE>`__ file for details.
 .. |License| image:: https://img.shields.io/pypi/l/twitter-cleanse.svg?style=flat
    :target: LICENSE
 .. |Versions| image:: https://img.shields.io/pypi/pyversions/twitter-cleanse.svg?style=flat
-
