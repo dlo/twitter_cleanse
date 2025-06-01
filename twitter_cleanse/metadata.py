@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __author__ = "Dan Loewenherz"
-__copyright__ = "Copyright 2015, Dan Loewenherz"
+__copyright__ = "Copyright 2015-2025, Dan Loewenherz"
 __maintainer__ = "Dan Loewenherz"
 __email__ = "dan@lionheartsw.com"
 __license__ = "Apache 2.0"
