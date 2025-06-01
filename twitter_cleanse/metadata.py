@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.3.0"
+__version__ = ""
 __author__ = "Dan Loewenherz"
 __copyright__ = "Copyright 2015-2025, Dan Loewenherz"
 __maintainer__ = "Dan Loewenherz"
