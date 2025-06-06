@@ -1,56 +1,54 @@
-# Copyright 2014-2018 Lionheart Software LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-# Usage: make VERSION=0.1.2
+.PHONY: build clean test install run fmt vet check build-all help
 
-METADATA_FILE := $(shell find . -name "metadata.py" -depth 2)
+# Build the binary
+build:
+	go build -o twitter-cleanse .
 
-.PHONY: clean test update_readme update_version publish
-
-all: clean test publish
-
+# Clean build artifacts
 clean:
-	rm -rf dist/
+	rm -f twitter-cleanse
+	rm -rf twitter_cleanse_cache/
 
+# Run tests
 test:
-	python setup.py test
-	python3 setup.py test
+	go test ./...
 
+# Install the binary to GOPATH/bin
 install:
-	python setup.py install
+	go install .
 
-update_readme:
-	pandoc --from=markdown --to=rst --output=README.rst README.md
-	-git reset
-	-git add README.rst
-	-git commit -m "update README.rst from README.md"
+# Run with dry-run mode (requires environment variables)
+run:
+	go run . --dry-run
 
-update_version:
-	sed -i "" "s/\(__version__[ ]*=\).*/\1 \"$(VERSION)\"/g" $(METADATA_FILE)
-	git add .
-	# - ignores errors in this command
-	-git commit -m "bump version to $(VERSION)"
-	# Delete tag if already exists
-	-git tag -d $(VERSION)
-	-git push origin master :$(VERSION)
-	git tag $(VERSION)
-	git push origin master
-	git push --tags
+# Format code
+fmt:
+	go fmt ./...
 
-publish: clean update_readme update_version
-	python setup.py bdist_wheel --universal
-	python3 setup.py bdist_wheel --universal
-	gpg --detach-sign -a dist/*.whl
-	twine upload dist/*
+# Run go vet
+vet:
+	go vet ./...
 
+# Run all checks
+check: fmt vet test
+
+# Build for multiple platforms
+build-all:
+	GOOS=linux GOARCH=amd64 go build -o twitter-cleanse-linux-amd64 .
+	GOOS=darwin GOARCH=amd64 go build -o twitter-cleanse-darwin-amd64 .
+	GOOS=darwin GOARCH=arm64 go build -o twitter-cleanse-darwin-arm64 .
+	GOOS=windows GOARCH=amd64 go build -o twitter-cleanse-windows-amd64.exe .
+
+# Help
+help:
+	@echo "Available targets:"
+	@echo "  build      - Build the binary"
+	@echo "  clean      - Clean build artifacts"
+	@echo "  test       - Run tests"
+	@echo "  install    - Install binary to GOPATH/bin"
+	@echo "  run        - Run with dry-run mode"
+	@echo "  fmt        - Format code"
+	@echo "  vet        - Run go vet"
+	@echo "  check      - Run fmt, vet, and test"
+	@echo "  build-all  - Build for multiple platforms"
+	@echo "  help       - Show this help" 

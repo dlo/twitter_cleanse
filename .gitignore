@@ -1,7 +1,27 @@
+# Cache files
 *.json
+twitter_cleanse_cache/
+
+# Go build artifacts
+twitter-cleanse
+twitter-cleanse-*
+*.exe
+
+# Legacy Python artifacts
 followers.txt
 auth.txt
 *.egg-info/
 build/
 dist/
 *.bak
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
