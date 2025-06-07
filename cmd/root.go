@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dlo/twitter-cleanse/internal/cleanse"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/dlo/twitter-cleanse/internal/cleanse"
 )
 
 var (
