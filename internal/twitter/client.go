@@ -1,14 +1,14 @@
 package twitter
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/dghubble/oauth1"
 )
 
 type Client struct {
@@ -50,7 +50,7 @@ type TweetsResponse struct {
 }
 
 type List struct {
-	ID          string `json:"id"`
+	ID          string `json:"id,omitempty"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Private     bool   `json:"private"`
@@ -63,12 +63,12 @@ type ListsResponse struct {
 	} `json:"meta"`
 }
 
-func NewClient(consumerKey, consumerSecret, accessToken, accessTokenSecret string) *Client {
-	config := oauth1.NewConfig(consumerKey, consumerSecret)
-	token := oauth1.NewToken(accessToken, accessTokenSecret)
-	return &Client{
-		httpClient: config.Client(oauth1.NoContext, token),
+func NewClient(ctx context.Context, clientID, clientSecret string) (*Client, error) {
+	httpClient, err := GetXHTTPClient(ctx, clientID, clientSecret)
+	if err != nil {
+		return nil, err
 	}
+	return &Client{httpClient: httpClient}, nil
 }
 
 func (c *Client) GetFollowing(ctx context.Context, userID string) ([]User, error) {
@@ -117,62 +117,72 @@ func (c *Client) GetFollowing(ctx context.Context, userID string) ([]User, error
 	return allUsers, nil
 }
 
-// func (c *Client) GetFollowers(ctx context.Context, userID string) ([]User, error) {
-// 	var allUsers []User
-// 	nextToken := ""
+func deleteRequest[T any](ctx context.Context, client *Client, url string) (*T, error) {
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	if err != nil {
+		return nil, err
+	}
 
-// 	for {
-// 		params := map[string]string{
-// 			"user.fields": "public_metrics",
-// 			"max_results": "1000",
-// 		}
-// 		if nextToken != "" {
-// 			params["pagination_token"] = nextToken
-// 		}
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-// 		endpoint := fmt.Sprintf("/users/%s/followers", userID)
-// 		resp, err := c.makeRequest(ctx, "GET", endpoint, params)
-// 		if err != nil {
-// 			return nil, err
-// 		}
-// 		defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
 
-// 		if resp.StatusCode != http.StatusOK {
-// 			body, _ := io.ReadAll(resp.Body)
-// 			return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-// 		}
+	var response T
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 
-// 		var response UsersResponse
-// 		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-// 			return nil, err
-// 		}
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		return nil, err
+	}
 
-// 		allUsers = append(allUsers, response.Data...)
+	return &response, nil
+}
 
-// 		if response.Meta.NextToken == "" {
-// 			break
-// 		}
-// 		nextToken = response.Meta.NextToken
-// 	}
+func postRequest[T any](ctx context.Context, client *Client, url string, body any) (*T, error) {
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
 
-// 	return allUsers, nil
-// }
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
 
-// func (c *Client) UnfollowUser(ctx context.Context, sourceUserID, targetUserID string) error {
-// 	endpoint := fmt.Sprintf("/users/%s/following/%s", sourceUserID, targetUserID)
-// 	resp, err := c.makeRequest(ctx, "DELETE", endpoint, map[string]string{})
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		body, _ := io.ReadAll(resp.Body)
-// 		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-// 	}
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-// 	return nil
-// }
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	var response T
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		return nil, err
+	}
+
+	return &response, nil
+}
 
 func getRequest[T any](ctx context.Context, client *Client, url string) (*T, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -204,36 +214,6 @@ func getRequest[T any](ctx context.Context, client *Client, url string) (*T, err
 	return &response, nil
 }
 
-// func (c *Client) GetUserTweets(ctx context.Context, userID string, maxResults int) ([]Tweet, error) {
-// 	params := map[string]string{
-// 		"tweet.fields": "created_at",
-// 		"max_results":  strconv.Itoa(maxResults),
-// 	}
-
-// 	endpoint := fmt.Sprintf("/users/%s/tweets", userID)
-// 	resp, err := c.makeRequest(ctx, "GET", endpoint, params)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if resp.StatusCode == http.StatusNotFound {
-// 		return []Tweet{}, nil
-// 	}
-
-// 	if resp.StatusCode != http.StatusOK {
-// 		body, _ := io.ReadAll(resp.Body)
-// 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-// 	}
-
-// 	var response TweetsResponse
-// 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-// 		return nil, err
-// 	}
-
-// 	return response.Data, nil
-// }
-
 func (c *Client) GetMe(ctx context.Context) (*User, error) {
 	response, err := getRequest[struct {
 		Data User `json:"data"`
@@ -254,50 +234,50 @@ func (c *Client) GetOwnedLists(ctx context.Context, userID string) ([]List, erro
 	return response.Data, nil
 }
 
-// func (c *Client) CreateList(ctx context.Context, name, description string, private bool) (*List, error) {
-// 	params := map[string]string{
-// 		"name":        name,
-// 		"description": description,
-// 		"private":     strconv.FormatBool(private),
-// 	}
+func (c *Client) GetFollowers(ctx context.Context, userID string) ([]User, error) {
+	response, err := getRequest[UsersResponse](ctx, c, fmt.Sprintf("https://api.x.com/2/users/%s/followers", userID))
+	if err != nil {
+		return nil, err
+	}
 
-// 	resp, err := c.makeRequest(ctx, "POST", "/lists", params)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer resp.Body.Close()
+	return response.Data, nil
+}
 
-// 	if resp.StatusCode != http.StatusCreated {
-// 		body, _ := io.ReadAll(resp.Body)
-// 		return nil, fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-// 	}
+func (c *Client) GetUserTweets(ctx context.Context, userID string, maxResults int) ([]Tweet, error) {
+	return nil, errors.New("not implemented")
+}
 
-// 	var response struct {
-// 		Data List `json:"data"`
-// 	}
-// 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-// 		return nil, err
-// 	}
+func (c *Client) CreateList(ctx context.Context, name, description string, private bool) (*List, error) {
+	type ListResponse struct {
+		Data List `json:"data"`
+	}
+	response, err := postRequest[ListResponse](ctx, c, "https://api.x.com/2/lists", List{
+		Name:        name,
+		Description: description,
+		Private:     private,
+	})
+	if err != nil {
+		return nil, err
+	}
 
-// 	return &response.Data, nil
-// }
+	return &response.Data, nil
+}
 
-// func (c *Client) AddMemberToList(ctx context.Context, listID, userID string) error {
-// 	endpoint := fmt.Sprintf("/lists/%s/members", listID)
-// 	params := map[string]string{
-// 		"user_id": userID,
-// 	}
+func (c *Client) AddMemberToList(ctx context.Context, listID, userID string) error {
+	_, err := postRequest[any](ctx, c, fmt.Sprintf("https://api.x.com/2/lists/%s/members", listID), map[string]string{"user_id": userID})
+	if err != nil {
+		return err
+	}
 
-// 	resp, err := c.makeRequest(ctx, "POST", endpoint, params)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer resp.Body.Close()
+	return nil
+}
 
-// 	if resp.StatusCode != http.StatusOK {
-// 		body, _ := io.ReadAll(resp.Body)
-// 		return fmt.Errorf("API error %d: %s", resp.StatusCode, string(body))
-// 	}
+func (c *Client) UnfollowUser(ctx context.Context, sourceUserID, targetUserID string) error {
+	// https://api.twitter.com/2/users/{source_user_id}/following/{target_user_id}
+	_, err := deleteRequest[any](ctx, c, fmt.Sprintf("https://api.x.com/2/users/%s/following/%s", sourceUserID, targetUserID))
+	if err != nil {
+		return err
+	}
 
-// 	return nil
-// }
+	return nil
+}

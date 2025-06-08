@@ -1,94 +1,72 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
 	"github.com/dlo/twitter-cleanse/internal/cleanse"
 )
 
 var (
-	consumerKey       string
-	consumerSecret    string
-	accessToken       string
-	accessTokenSecret string
-	useCache          bool
-	yearsThreshold    float64
-	dryRun            bool
+	clientID       = flag.String("client-id", getEnv("CLIENT_ID", ""), "Your Twitter application's client ID")
+	clientSecret   = flag.String("client-secret", getEnv("CLIENT_SECRET", ""), "Your Twitter application's client secret")
+	useCache       = flag.Bool("use-cache", true, "Use a file cache to cache Twitter response payloads")
+	yearsThreshold = flag.Float64("years-dormant-threshold", 2.0, "The number of years a person hasn't tweeted for to be unfollowed")
+	dryRun         = flag.Bool("dry-run", false, "Print out log messages as usual, but don't actually unfollow anyone")
+	help           = flag.Bool("help", false, "Show this help message")
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "twitter-cleanse",
-	Short: "Clean up your Twitter follow list",
-	Long: `Twitter Cleanse helps you clean up your Twitter follow list by unfollowing users who:
-1. Have no tweets, or
-2. Haven't tweeted in the last X years (defaults to 2).
-3. Have been muted but no longer follow you back.
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
-It will also save these users to distinct Twitter lists for potential re-following.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if consumerKey == "" || consumerSecret == "" || accessToken == "" || accessTokenSecret == "" {
-			fmt.Println("Error: All authentication credentials are required")
-			cmd.Help()
-			os.Exit(1)
-		}
+func showUsage() {
+	fmt.Fprintf(os.Stderr, `Twitter Cleanse - Clean up your Twitter follow list
 
-		config := cleanse.Config{
-			ConsumerKey:       consumerKey,
-			ConsumerSecret:    consumerSecret,
-			AccessToken:       accessToken,
-			AccessTokenSecret: accessTokenSecret,
-			UseCache:          useCache,
-			YearsThreshold:    yearsThreshold,
-			DryRun:            dryRun,
-		}
+Unfollows users who:
+1. Have no tweets
+2. Haven't tweeted in X years (default: 2)
+3. Are muted and don't follow back
 
-		if err := cleanse.Run(config); err != nil {
-			fmt.Printf("Error: %v\n", err)
-			os.Exit(1)
-		}
-	},
+Users are saved to Twitter lists for later reference.
+
+Usage: %s [OPTIONS]
+
+Options:
+`, os.Args[0])
+	flag.PrintDefaults()
+	fmt.Fprintf(os.Stderr, "\nEnvironment variables:\n  CLIENT_ID      Twitter application's client ID\n  CLIENT_SECRET  Twitter application's client secret\n")
 }
 
 func Execute() {
-	if err := rootCmd.Execute(); err != nil {
+	flag.Usage = showUsage
+	flag.Parse()
+
+	if *help {
+		showUsage()
+		os.Exit(0)
+	}
+
+	if *clientID == "" || *clientSecret == "" {
+		fmt.Fprintf(os.Stderr, "Error: All authentication credentials are required\n\n")
+		showUsage()
 		os.Exit(1)
 	}
-}
 
-func init() {
-	cobra.OnInitialize(initConfig)
-
-	rootCmd.PersistentFlags().StringVar(&consumerKey, "consumer-key", "", "Your Twitter application's consumer key")
-	rootCmd.PersistentFlags().StringVar(&consumerSecret, "consumer-secret", "", "Your Twitter application's consumer secret")
-	rootCmd.PersistentFlags().StringVar(&accessToken, "access-token", "", "Your Twitter access token")
-	rootCmd.PersistentFlags().StringVar(&accessTokenSecret, "access-token-secret", "", "Your Twitter access token secret")
-	rootCmd.PersistentFlags().BoolVar(&useCache, "use-cache", true, "Use a file cache to cache Twitter response payloads")
-	rootCmd.PersistentFlags().Float64Var(&yearsThreshold, "years-dormant-threshold", 2.0, "The number of years a person hasn't tweeted for to be unfollowed")
-	rootCmd.PersistentFlags().BoolVar(&dryRun, "dry-run", false, "Print out log messages as usual, but don't actually unfollow anyone")
-
-	viper.BindPFlag("consumer-key", rootCmd.PersistentFlags().Lookup("consumer-key"))
-	viper.BindPFlag("consumer-secret", rootCmd.PersistentFlags().Lookup("consumer-secret"))
-	viper.BindPFlag("access-token", rootCmd.PersistentFlags().Lookup("access-token"))
-	viper.BindPFlag("access-token-secret", rootCmd.PersistentFlags().Lookup("access-token-secret"))
-}
-
-func initConfig() {
-	viper.AutomaticEnv()
-
-	if viper.GetString("consumer-key") != "" {
-		consumerKey = viper.GetString("consumer-key")
+	config := cleanse.Config{
+		ClientID:       *clientID,
+		ClientSecret:   *clientSecret,
+		UseCache:       *useCache,
+		YearsThreshold: *yearsThreshold,
+		DryRun:         *dryRun,
 	}
-	if viper.GetString("consumer-secret") != "" {
-		consumerSecret = viper.GetString("consumer-secret")
-	}
-	if viper.GetString("access-token") != "" {
-		accessToken = viper.GetString("access-token")
-	}
-	if viper.GetString("access-token-secret") != "" {
-		accessTokenSecret = viper.GetString("access-token-secret")
+
+	if err := cleanse.Run(config); err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
 	}
 }

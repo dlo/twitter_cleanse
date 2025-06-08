@@ -11,23 +11,20 @@ import (
 )
 
 type Config struct {
-	ConsumerKey       string
-	ConsumerSecret    string
-	AccessToken       string
-	AccessTokenSecret string
-	UseCache          bool
-	YearsThreshold    float64
-	DryRun            bool
+	ClientID       string
+	ClientSecret   string
+	UseCache       bool
+	YearsThreshold float64
+	DryRun         bool
 }
 
 func Run(config Config) error {
 	ctx := context.Background()
 
-	client := twitter.NewClient(
-		config.ConsumerKey,
-		config.ConsumerSecret,
-		config.AccessToken,
-		config.AccessTokenSecret,
+	client, err := twitter.NewClient(
+		ctx,
+		config.ClientID,
+		config.ClientSecret,
 	)
 
 	var _ *cache.Cache
@@ -88,7 +85,7 @@ func Run(config Config) error {
 				continue
 			}
 		} else {
-			tweets, err := client.GetUserTweets(ctx, user.ID, 1)
+			tweets, err := client.GetUserTweets(ctx, user.ID)
 			if err != nil {
 				log.Printf("Error getting tweets for @%s: %v", user.Username, err)
 				continue
