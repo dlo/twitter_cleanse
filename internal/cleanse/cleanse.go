@@ -78,14 +78,19 @@ func Run(config Config) error {
 	yearsThreshold := time.Duration(config.YearsThreshold*365*24) * time.Hour
 
 	for _, user := range following {
-		if user.PublicMetrics.TweetCount == 0 {
+		if user.Protected {
+			log.Printf("Skipping @%s since they are protected", user.Username)
+			continue
+		}
+
+		if user.MostRecentTweetID == "" {
 			log.Printf("Unfollowing @%s since they have no tweets", user.Username)
 			if err := unfollowAndAddToList(ctx, client, me.ID, user.ID, noTweetsListID, config.DryRun); err != nil {
 				log.Printf("Error unfollowing @%s: %v", user.Username, err)
 				continue
 			}
 		} else {
-			tweets, err := client.GetUserTweets(ctx, user.ID)
+			tweets, err := client.GetUserTweets(ctx, user.ID, 1)
 			if err != nil {
 				log.Printf("Error getting tweets for @%s: %v", user.Username, err)
 				continue

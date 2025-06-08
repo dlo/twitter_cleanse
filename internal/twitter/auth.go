@@ -30,7 +30,7 @@ func (f TokenSourceFunc) Token() (*oauth2.Token, error) {
 	return f()
 }
 
-func GetXHTTPClient(ctx context.Context, clientID, clientSecret string) (*http.Client, error) {
+func GetXHTTPClient(ctx context.Context, clientID, clientSecret string, forceRefresh bool) (*http.Client, error) {
 	cfgDir := func() string { d, _ := os.UserConfigDir(); return filepath.Join(d, "x-oauth-demo") }()
 	tokenPath := filepath.Join(cfgDir, "token.json")
 
@@ -45,6 +45,8 @@ func GetXHTTPClient(ctx context.Context, clientID, clientSecret string) (*http.C
 		Scopes: []string{
 			"tweet.read",
 			"users.read",
+			"list.read",
+			"follows.read",
 			"offline.access",
 		},
 	}
@@ -70,19 +72,30 @@ func GetXHTTPClient(ctx context.Context, clientID, clientSecret string) (*http.C
 	}
 
 	// ── 1. Obtain initial token (cache ⟹ browser + paste) ────────────────────
-	tok, _ := load()
-	if tok != nil && tok.Valid() {
-		// ── 2. Wrap in a persist-on-refresh TokenSource ──────────────────────────
-		ts := oauth2.ReuseTokenSource(tok, TokenSourceFunc(func() (*oauth2.Token, error) {
-			ctx := context.Background()
-			newTok, err := conf.TokenSource(ctx, tok).Token()
-			if err == nil {
-				save(newTok)
-			}
-			return newTok, err
-		}))
+	var tok *oauth2.Token
+	if !forceRefresh {
+		tok, _ = load()
+		if tok != nil && tok.Valid() {
+			log.Printf("DEBUG: Loaded cached token - Access: %s, Refresh: %s, Expires: %v",
+				tok.AccessToken,
+				tok.RefreshToken,
+				tok.Expiry)
+			// ── 2. Wrap in a persist-on-refresh TokenSource ──────────────────────────
+			ts := oauth2.ReuseTokenSource(tok, TokenSourceFunc(func() (*oauth2.Token, error) {
+				ctx := context.Background()
+				newTok, err := conf.TokenSource(ctx, tok).Token()
+				if err == nil {
+					log.Printf("DEBUG: Refreshed token - Access: %s, Refresh: %s, Expires: %v",
+						newTok.AccessToken,
+						newTok.RefreshToken,
+						newTok.Expiry)
+					save(newTok)
+				}
+				return newTok, err
+			}))
 
-		return oauth2.NewClient(ctx, ts), nil
+			return oauth2.NewClient(ctx, ts), nil
+		}
 	}
 
 	// Token is invalid or missing, start OAuth flow
@@ -138,6 +151,11 @@ func GetXHTTPClient(ctx context.Context, clientID, clientSecret string) (*http.C
 	if err != nil {
 		return nil, fmt.Errorf("token exchange: %w", err)
 	}
+
+	log.Printf("DEBUG: New token exchanged - Access: %s..., Refresh: %s..., Expires: %v",
+		tok.AccessToken[:min(20, len(tok.AccessToken))],
+		tok.RefreshToken[:min(20, len(tok.RefreshToken))],
+		tok.Expiry)
 
 	save(tok)
 

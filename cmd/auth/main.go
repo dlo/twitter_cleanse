@@ -12,9 +12,24 @@ import (
 func main() {
 	clientID := os.Getenv("OAUTH_2_CLIENT_ID")
 	clientSecret := os.Getenv("OAUTH_2_CLIENT_SECRET")
-	client, err := twitter.GetXHTTPClient(context.Background(), clientID, clientSecret)
+
+	twitterClient, err := twitter.NewClient(context.Background(), clientID, clientSecret)
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println(client)
+
+	ctx := context.Background()
+	me, err := twitterClient.GetMe(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	following, err := twitterClient.GetFollowing(ctx, me.ID)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for _, user := range following {
+		fmt.Println(user.Username)
+	}
 }
