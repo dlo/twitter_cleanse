@@ -15,130 +15,128 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-
-import os
-import json
-import pprint
 import datetime
-import hashlib
-import urllib.request, urllib.parse, urllib.error
 import errno
+import hashlib
+import json
+import os
+import pickle
 
 import pytz
-from dateutil import parser as date_parser
-from restmapper.restmapper import RestMapper
-from requests_oauthlib import OAuth1
+import tweepy
 
-def url_transformer(url):
-    if url.endswith("/__name__"):
-        url = url.replace("/__name__", "")
 
-    return url + ".json"
+def get_twitter_oauth2(client_id, client_secret, redirect_uri="https://twitter.lionheartsw.com/callback", token_file="token.json"):
+    if os.path.exists(token_file):
+        with open(token_file) as f:
+            token = json.load(f)
+    else:
+        token = None
 
+    oauth2_user_handler = tweepy.OAuth2UserHandler(
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        scope=[
+            "users.read",
+            "tweet.read",
+            "follows.read", "follows.write",
+            "list.read", "list.write",
+            "offline.access",
+        ],
+        client_secret=client_secret
+    )
+
+    if token:
+        oauth2_user_handler.token = token
+
+    if not oauth2_user_handler.token:
+        print("Please go to this URL and authorize the application:")
+        print(oauth2_user_handler.get_authorization_url())
+
+        authorization_response = input("Enter the full callback URL: ")
+
+        oauth2_user_handler.fetch_token(authorization_response)
+
+        with open(token_file, "w") as f:
+            json.dump(oauth2_user_handler.token, f)
+
+    return tweepy.Client(oauth2_user_handler)
+
+CACHE_DIR = "twitter_cleanse_cache"
 
 def mkdir_p(path):
     try:
         os.makedirs(path)
-    except OSError as exc: # Python >2.5
+    except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(path):
             pass
-        else: raise
-
-
-Twitter = RestMapper("https://api.twitter.com/1.1/{path}.json")
-
-def request_hash(fun, **params):
-    path = "/".join(fun.components)
-    key = "{}{}".format(path, urllib.parse.urlencode(params))
-    checksum = hashlib.md5(key.encode('utf-8')).hexdigest()
-    return checksum
-
-
-def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, use_cache, years_dormant_threshold=2, dry_run=False):
-    auth = OAuth1(consumer_key, consumer_secret, access_token, access_token_secret)
-    twitter = Twitter(auth=auth)
-
-    def retry_until_success(fun, **kwargs):
-        mkdir_p("twitter_cleanse_cache")
-        filename = "twitter_cleanse_cache/{}.json".format(request_hash(fun, **kwargs))
-        if use_cache and os.path.exists(filename):
-            with open(filename, 'r') as f:
-                result = json.load(f)
         else:
-            while True:
-                response = fun(
-                    parse_response=False,
-                    **kwargs
-                )
+            raise
 
-                if response.status_code == 200:
-                    result = response.json()
-                    if use_cache:
-                        with open(filename, 'w') as f:
-                            json.dump(result, f)
+def cached_request(client_method, use_cache, **kwargs):
+    if not use_cache:
+        return client_method(**kwargs)
 
-                    break
-                else:
-                    dt = datetime.datetime.now() + datetime.timedelta(minutes=15)
-                    formatted_time = dt.strftime("%l:%m:%S %p").strip()
-                    print("{} status code returned.".format(response.status_code))
-                    input("Press enter to try again. To be safe, wait 15 minutes (until {}) before continuing. ".format(formatted_time))
+    mkdir_p(CACHE_DIR)
 
-        return result
+    key_parts = [client_method.__name__]
+    key_parts.extend(f"{k}={v}" for k, v in sorted(kwargs.items()))
+    key = "".join(key_parts)
+    checksum = hashlib.md5(key.encode('utf-8')).hexdigest()
+    filename = os.path.join(CACHE_DIR, f"{checksum}.pickle")
 
-    def users(fun):
-        cursor = -1
-        while cursor != 0:
-            result = retry_until_success(
-                fun,
-                count=200,
-                include_user_entities="false",
-                cursor=cursor
-            )
+    if os.path.exists(filename):
+        try:
+            with open(filename, 'rb') as f:
+                return pickle.load(f)
+        except (pickle.UnpicklingError, EOFError):
+            # Cache file is corrupted, treat as a cache miss
+            pass
 
-            for user in result['users']:
-                yield user
+    response = client_method(**kwargs)
 
-            cursor = result['next_cursor']
+    with open(filename, 'wb') as f:
+        pickle.dump(response, f)
 
+    return response
+
+
+def cleanse(client, use_cache=True, years_dormant_threshold=2, dry_run=False):
+    response = cached_request(client.get_me, use_cache)
+    me = response.data
+    user_id = me.id
 
     def get_list_id(name, description):
-        lists = retry_until_success(twitter.lists.ownerships)['lists']
+        response = cached_request(client.get_owned_lists, use_cache, id=user_id)
+        lists = response.data or []
 
-        # `list` is taken in Python
         for list_ in lists:
-            if list_['name'] == name:
+            if list_.name == name:
                 break
         else:
-            # If the loop falls through without finding a match, create a new list.
-            list_ = retry_until_success(
-                twitter.POST.lists.create,
+            response = cached_request(
+                client.create_list,
+                use_cache,
                 name=name,
-                mode="private",
-                description=description
+                description=description,
+                private=True
             )
+            list_ = response.data
 
-        return list_['id']
+        return list_.id
 
-    def unfollow_and_add_to_list(list_id, user_id, screen_name):
+    def unfollow_and_add_to_list(list_id, friend_user_id, screen_name):
+        print(f"Unfollowing {screen_name} and adding to list.")
         if not dry_run:
-            retry_until_success(
-                twitter.POST.lists.members.create,
-                list_id=list_id,
-                user_id=user_id,
-                screen_name=screen_name
-            )
+            cached_request(client.add_list_member, use_cache, id=list_id, user_id=friend_user_id)
+            cached_request(client.unfollow, use_cache, target_user_id=friend_user_id)
 
-            retry_until_success(
-                twitter.POST.friendships.destroy,
-                user_id=user_id
-            )
-
-    stopped_tweeting_list_id = get_list_id(
-        name="Unfollowed: Quit Twitter",
-        description="Users previously followed who have since stopped tweeting."
-    )
+    # The 'Unfollowed: Quit Twitter' list is no longer used because
+    # the v2 API doesn't easily support checking the last tweet date.
+    # stopped_tweeting_list_id = get_list_id(
+    #     name="Unfollowed: Quit Twitter",
+    #     description="Users previously followed who have since stopped tweeting."
+    # )
 
     no_tweets_list_id = get_list_id(
         name="Unfollowed: No Tweets",
@@ -150,29 +148,54 @@ def cleanse(consumer_key, consumer_secret, access_token, access_token_secret, us
         description="Muted users who are no longer followers."
     )
 
-    now = datetime.datetime.now(pytz.utc)
-    followers = set(user['id'] for user in users(twitter.followers.list))
+    follower_ids = set()
+    pagination_token = None
+    while True:
+        response = cached_request(
+            client.get_users_followers,
+            use_cache,
+            id=user_id,
+            max_results=1000,
+            pagination_token=pagination_token
+        )
+        if response.data:
+            for user in response.data:
+                follower_ids.add(user.id)
+        
+        if not response.meta or 'next_token' not in response.meta:
+            break
+        pagination_token = response.meta['next_token']
 
-    for user in users(twitter.friends.list):
-        user_id = user['id']
-        screen_name = user['screen_name']
-        muted = user['muting']
-        if muted and user_id not in followers:
-            unfollow_and_add_to_list(muted_list_id, user_id, screen_name)
+    pagination_token = None
+    while True:
+        response = cached_request(
+            client.get_users_following,
+            use_cache,
+            id=user_id,
+            max_results=1000,
+            user_fields=["public_metrics", "muting"],
+            pagination_token=pagination_token
+        )
 
-            print("Unfollowing", screen_name, "since they're muted and are not a follower.")
-        elif 'status' in user:
-            # Unfollow users who haven't tweeted in `years_dormant_threshold` years.
-            dt = date_parser.parse(user['status']['created_at'])
-            delta = now - dt
-            years = round(delta.days / 365., 2)
-            if years >= years_dormant_threshold:
-                unfollow_and_add_to_list(stopped_tweeting_list_id, user_id, screen_name)
+        if not response.data:
+            if not response.meta or 'next_token' not in response.meta:
+                break
+            else:
+                pagination_token = response.meta['next_token']
+                continue
 
-                print("Unfollowing", screen_name, "since they haven't tweeted in {} years".format(years))
-        else:
-            # Unfollow users who have never tweeted
-            unfollow_and_add_to_list(no_tweets_list_id, user_id, screen_name)
+        for user in response.data:
+            friend_user_id = user.id
+            screen_name = user.username
 
-            print("Unfollowing", screen_name, "since they have no tweets")
+            if user.muting and user.id not in follower_ids:
+                unfollow_and_add_to_list(muted_list_id, friend_user_id, screen_name)
+                print(f"Unfollowing {screen_name} since they're muted and are not a follower.")
+            elif user.public_metrics['tweet_count'] == 0:
+                unfollow_and_add_to_list(no_tweets_list_id, friend_user_id, screen_name)
+                print(f"Unfollowing {screen_name} since they have no tweets")
+
+        if not response.meta or 'next_token' not in response.meta:
+            break
+        pagination_token = response.meta['next_token']
 
